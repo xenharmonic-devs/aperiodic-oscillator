@@ -1,0 +1,52 @@
+{
+  "name": "inharmonic-oscillator",
+  "version": "0.0.0",
+  "description": "Non-periodic replacement for OscillatorNode from Web Audio API",
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/frostburn"
+  },
+  "main": "dist/index",
+  "files": [
+    "dist"
+  ],
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "lint": "gts lint",
+    "clean": "gts clean",
+    "compile": "tsc",
+    "fix": "gts fix",
+    "prepare": "npm run compile",
+    "pretest": "npm run compile",
+    "posttest": "npm run lint",
+    "test": "vitest",
+    "doc": "typedoc src/index.ts . --name inharmonic-oscillator"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xenharmonic-devs/inharmonic-oscillator.git"
+  },
+  "keywords": [
+    "Microtonal",
+    "Audio",
+    "Xenharmonic",
+    "Inharmonic",
+    "Oscillator",
+    "OscillatorNode"
+  ],
+  "author": "Lumi Pakkanen",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/xenharmonic-devs/inharmonic-oscillator/issues"
+  },
+  "homepage": "https://github.com/xenharmonic-devs/inharmonic-oscillator#readme",
+  "devDependencies": {
+    "@types/jsdom": "^21.1.6",
+    "@types/node": "^20.10.1",
+    "gts": "^5.2.0",
+    "jsdom": "^22.1.0",
+    "typedoc": "^0.25.4",
+    "typescript": "^5.3.2",
+    "vitest": "^0.34.6"
+  }
+}
