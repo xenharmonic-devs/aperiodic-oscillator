@@ -1,3 +1,5 @@
+import {allocateVoices} from './harmonic-allocator';
+
 class MultiOscillator implements OscillatorNode {
   context: AudioContext;
   voices: OscillatorNode[];
@@ -193,6 +195,7 @@ class MultiOscillator implements OscillatorNode {
   }
 }
 
+// TODO: Frequency-space variant
 export class UnisonOscillator extends MultiOscillator {
   _spread: ConstantSourceNode;
   _mus: GainNode[];
@@ -245,6 +248,38 @@ export class UnisonOscillator extends MultiOscillator {
   }
 }
 
-export class InharmonicOscillator extends MultiOscillator {
-  // TODO
+export class AperiodicOscillator extends MultiOscillator {
+  constructor(context: AudioContext, numVoices: number) {
+    super(context, numVoices);
+  }
+
+  setAperiodicWave(spectrum: number[], amplitudes: number[], jnd = 0.5) {
+    const [detunings, voiceAmplitudes] = allocateVoices(
+      spectrum,
+      amplitudes,
+      this.voices.length,
+      jnd
+    );
+    for (let i = 0; i < detunings.length; ++i) {
+      this.voices[i].detune.setValueAtTime(
+        detunings[i],
+        this.context.currentTime
+      );
+      const wave = this.context.createPeriodicWave(
+        voiceAmplitudes[i].map(() => 0),
+        voiceAmplitudes[i],
+        {disableNormalization: true}
+      );
+      this.voices[i].setPeriodicWave(wave);
+    }
+    // Silence unused voices
+    const silence = this.context.createPeriodicWave(
+      new Float32Array([0, 0]),
+      new Float32Array([0, 0]),
+      {disableNormalization: true}
+    );
+    for (let i = detunings.length; i < this.voices.length; ++i) {
+      this.voices[i].setPeriodicWave(silence);
+    }
+  }
 }

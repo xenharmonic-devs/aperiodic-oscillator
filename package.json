@@ -1,5 +1,5 @@
 {
-  "name": "inharmonic-oscillator",
+  "name": "aperiodic-oscillator",
   "version": "0.0.0",
   "description": "Non-periodic replacement for OscillatorNode from Web Audio API",
   "funding": {
@@ -20,26 +20,27 @@
     "pretest": "npm run compile",
     "posttest": "npm run lint",
     "test": "vitest",
-    "doc": "typedoc src/index.ts . --name inharmonic-oscillator"
+    "doc": "typedoc src/index.ts . --name aperiodic-oscillator"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/xenharmonic-devs/inharmonic-oscillator.git"
+    "url": "git+https://github.com/xenharmonic-devs/aperiodic-oscillator.git"
   },
   "keywords": [
     "Microtonal",
     "Audio",
     "Xenharmonic",
     "Inharmonic",
+    "Aperiodic",
     "Oscillator",
     "OscillatorNode"
   ],
   "author": "Lumi Pakkanen",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/xenharmonic-devs/inharmonic-oscillator/issues"
+    "url": "https://github.com/xenharmonic-devs/aperiodic-oscillator/issues"
   },
-  "homepage": "https://github.com/xenharmonic-devs/inharmonic-oscillator#readme",
+  "homepage": "https://github.com/xenharmonic-devs/aperiodic-oscillator#readme",
   "devDependencies": {
     "@types/jsdom": "^21.1.6",
     "@types/node": "^20.10.1",
