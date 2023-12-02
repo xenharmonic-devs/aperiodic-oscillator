@@ -42,10 +42,6 @@ export class AperiodicWave {
   }
 }
 
-export interface MultiOscillatorOptions extends OscillatorOptions {
-  numberOfVoices?: number;
-}
-
 /**
  * A collection of [OscillatorNode](https://developer.mozilla.org/en-US/docs/Web/API/OscillatorNode) instances acting like a single [OscillatorNode](https://developer.mozilla.org/en-US/docs/Web/API/OscillatorNode).
  */
@@ -62,7 +58,7 @@ export class MultiOscillator implements OscillatorNode {
   private _stopped: boolean;
   private _stopTime?: number;
 
-  constructor(context: BaseAudioContext, options?: MultiOscillatorOptions) {
+  constructor(context: BaseAudioContext, options?: OscillatorOptions) {
     this.context = context;
     this._options = {...options, detune: 0, frequency: 0};
     const detune = new ConstantSourceNode(context, {
@@ -73,7 +69,17 @@ export class MultiOscillator implements OscillatorNode {
     });
     const gain = context.createGain();
 
-    this.voices = [];
+    const voice = new OscillatorNode(context, this._options);
+    voice.connect(gain);
+    detune.connect(voice.detune);
+    frequency.connect(voice.frequency);
+    voice.addEventListener('ended', () => {
+      voice.disconnect(gain);
+      detune.disconnect(voice.detune);
+      frequency.disconnect(voice.frequency);
+    });
+
+    this.voices = [voice];
 
     this._detune = detune;
     this._frequency = frequency;
@@ -81,8 +87,6 @@ export class MultiOscillator implements OscillatorNode {
 
     this._started = false;
     this._stopped = false;
-
-    this.numberOfVoices = options?.numberOfVoices ?? 1;
   }
 
   /**
@@ -130,7 +134,6 @@ export class MultiOscillator implements OscillatorNode {
       } else {
         voice.type = this.type;
       }
-      voice.frequency.setValueAtTime(0, this.context.currentTime);
       voice.connect(this._gain);
       this._detune.connect(voice.detune);
       this._frequency.connect(voice.frequency);
@@ -339,8 +342,9 @@ export class MultiOscillator implements OscillatorNode {
   }
 }
 
-export interface UnisonOscillatorOptions extends MultiOscillatorOptions {
-  spread: number;
+export interface UnisonOscillatorOptions extends OscillatorOptions {
+  spread?: number;
+  numberOfVoices?: number;
 }
 
 /**
@@ -366,6 +370,7 @@ export class UnisonOscillator extends MultiOscillator {
 
     this._spread = spread;
     this._mus = [mu];
+    this.numberOfVoices = options?.numberOfVoices ?? 1;
   }
 
   set numberOfVoices(newValue: number) {
@@ -429,10 +434,7 @@ export class UnisonOscillator extends MultiOscillator {
 }
 
 export interface AperiodicOscillatorOptions
-  extends Omit<
-    MultiOscillatorOptions,
-    'type' | 'periodicWave' | 'numberOfVoices'
-  > {
+  extends Omit<OscillatorOptions, 'type' | 'periodicWave'> {
   aperiodicWave?: AperiodicWave;
 }
 
