@@ -20,7 +20,7 @@ ns.shift();
 const spectrum = ns.map(n => n ** 1.5);
 const amplitudes = ns.map(n => 0.3 * n ** -1.5);
 const maxNumberOfVoices = 7;
-const tolerance = 1.23; // In cents
+const tolerance = 0.1; // In cents
 const timbre = new AperiodicWave(
   context,
   spectrum,
