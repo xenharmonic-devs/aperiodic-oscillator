@@ -1,21 +1,32 @@
 import {allocateVoices} from './harmonic-allocator';
 
+/**
+ * The {@link AperiodicWave} interface defines an aperiodic waveform that can be used to shape the output of an {@link AperiodicOscillator}.
+ */
 export class AperiodicWave {
   detunings: number[];
   periodicWaves: PeriodicWave[];
 
+  /**
+   * Allocate voice detunings to approximate the given inharmonic spectrum.
+   * @param context A [BaseAudioContext](https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext) representing the audio context you want the aperiodic wave to be associated with.
+   * @param spectrum Partial ratios ordered by priority.
+   * @param amplitudes Partial amplitudes.
+   * @param maxNumberOfVoices Maximum number of voices to allocate.
+   * @param tolerance Largest acceptable error in cents.
+   */
   constructor(
     context: BaseAudioContext,
     spectrum: number[],
     amplitudes: number[],
-    maxVoices: number,
-    jnd: number
+    maxNumberOfVoices: number,
+    tolerance: number
   ) {
     const [detunings, voiceAmplitudes] = allocateVoices(
       spectrum,
       amplitudes,
-      maxVoices,
-      jnd
+      maxNumberOfVoices,
+      tolerance
     );
 
     this.detunings = detunings;
@@ -31,38 +42,38 @@ export class AperiodicWave {
   }
 }
 
-class MultiOscillator implements OscillatorNode {
+export interface MultiOscillatorOptions extends OscillatorOptions {
+  numberOfVoices?: number;
+}
+
+/**
+ * A collection of [OscillatorNode](https://developer.mozilla.org/en-US/docs/Web/API/OscillatorNode) instances acting like a single [OscillatorNode](https://developer.mozilla.org/en-US/docs/Web/API/OscillatorNode).
+ */
+export class MultiOscillator implements OscillatorNode {
   context: BaseAudioContext;
   voices: OscillatorNode[];
-  _detune: ConstantSourceNode;
-  _frequency: ConstantSourceNode;
-  _gain: GainNode;
-  _periodicWave?: PeriodicWave;
-  _started: boolean;
-  _startTime?: number;
-  _stopped: boolean;
-  _stopTime?: number;
+  private _options: OscillatorOptions;
+  private _detune: ConstantSourceNode;
+  private _frequency: ConstantSourceNode;
+  protected _gain: GainNode;
+  private _periodicWave?: PeriodicWave;
+  private _started: boolean;
+  private _startTime?: number;
+  private _stopped: boolean;
+  private _stopTime?: number;
 
-  constructor(context: BaseAudioContext) {
+  constructor(context: BaseAudioContext, options?: MultiOscillatorOptions) {
     this.context = context;
-    const detune = context.createConstantSource();
-    detune.offset.setValueAtTime(0, context.currentTime);
-    const frequency = context.createConstantSource();
-    frequency.offset.setValueAtTime(440, context.currentTime);
+    this._options = {...options, detune: 0, frequency: 0};
+    const detune = new ConstantSourceNode(context, {
+      offset: options?.detune ?? 0,
+    });
+    const frequency = new ConstantSourceNode(context, {
+      offset: options?.frequency ?? 440,
+    });
     const gain = context.createGain();
 
-    const voice = this.context.createOscillator();
-    voice.frequency.setValueAtTime(0, this.context.currentTime);
-    voice.connect(gain);
-    detune.connect(voice.detune);
-    frequency.connect(voice.frequency);
-    voice.addEventListener('ended', () => {
-      voice.disconnect(gain);
-      detune.disconnect(voice.detune);
-      frequency.disconnect(voice.frequency);
-    });
-
-    this.voices = [voice];
+    this.voices = [];
 
     this._detune = detune;
     this._frequency = frequency;
@@ -70,8 +81,13 @@ class MultiOscillator implements OscillatorNode {
 
     this._started = false;
     this._stopped = false;
+
+    this.numberOfVoices = options?.numberOfVoices ?? 1;
   }
 
+  /**
+   * Dispose of this {@link MultiOscillator} stopping and disconnecting all voices.
+   */
   dispose() {
     for (const voice of this.voices) {
       voice.stop();
@@ -84,11 +100,18 @@ class MultiOscillator implements OscillatorNode {
     this._gain.disconnect();
   }
 
-  get numVoices() {
+  /**
+   * Get the number of voices in this {@link MultiOscillator} group.
+   */
+  get numberOfVoices() {
     return this.voices.length;
   }
 
-  set numVoices(newValue: number) {
+  /**
+   * Set the number of voices in this {@link MultiOscillator} group.
+   * Allocates and auto-connects new voices as necessary.
+   */
+  set numberOfVoices(newValue: number) {
     if (newValue < 1) {
       throw new Error('At least one voice must be present');
     }
@@ -98,7 +121,7 @@ class MultiOscillator implements OscillatorNode {
       voice.disconnect();
     }
     while (this.voices.length < newValue) {
-      const voice = this.context.createOscillator();
+      const voice = new OscillatorNode(this.context, this._options);
       if (this.type === 'custom') {
         if (!this._periodicWave) {
           throw new Error("Periodic wave must be set when type = 'custom'");
@@ -126,18 +149,30 @@ class MultiOscillator implements OscillatorNode {
     }
   }
 
+  /**
+   * An [a-rate](https://developer.mozilla.org/en-US/docs/Web/API/AudioParam#a-rate) [AudioParam](https://developer.mozilla.org/en-US/docs/Web/API/AudioParam) representing detuning of oscillation in cents (though the `AudioParam` returned is read-only, the value it represents is not). The default value is 0.
+   */
   get detune() {
     return this._detune.offset;
   }
 
+  /**
+   * An [a-rate](https://developer.mozilla.org/en-US/docs/Web/API/AudioParam#a-rate) [AudioParam](https://developer.mozilla.org/en-US/docs/Web/API/AudioParam) representing the frequency of oscillation in hertz (though the AudioParam returned is read-only, the value it represents is not). The default value is 440 Hz (a standard middle-A note).
+   */
   get frequency() {
     return this._frequency.offset;
   }
 
+  /**
+   * A string which specifies the shape of waveform to play; this can be one of a number of standard values, or `"custom"` to use a [PeriodicWave](https://developer.mozilla.org/en-US/docs/Web/API/PeriodicWave) to describe a custom waveform. Different waves will produce different tones. Standard values are `"sine"`, `"square"`, `"sawtooth"`, `"triangle"` and `"custom"`. The default is `"sine"`.
+   */
   get type() {
     return this.voices[0].type;
   }
 
+  /**
+   * A string which specifies the shape of waveform to play; this can be one of a number of standard values, or `"custom"` to use a [PeriodicWave](https://developer.mozilla.org/en-US/docs/Web/API/PeriodicWave) to describe a custom waveform. Different waves will produce different tones. Standard values are `"sine"`, `"square"`, `"sawtooth"`, `"triangle"` and `"custom"`. The default is `"sine"`.
+   */
   set type(newValue: OscillatorType) {
     for (const voice of this.voices) {
       voice.type = newValue;
@@ -168,10 +203,14 @@ class MultiOscillator implements OscillatorNode {
     return this.voices[0].numberOfOutputs;
   }
 
-  setPeriodicWave(periodicWave: PeriodicWave) {
-    this._periodicWave = periodicWave;
+  /**
+   * Sets a [PeriodicWave](https://developer.mozilla.org/en-US/docs/Web/API/PeriodicWave) which describes a periodic waveform to be used instead of one of the standard waveforms; calling this sets the type to `"custom"`.
+   * @param wave A [PeriodicWave](https://developer.mozilla.org/en-US/docs/Web/API/PeriodicWave) object representing the waveform to use as the shape of the oscillator's output.
+   */
+  setPeriodicWave(wave: PeriodicWave) {
+    this._periodicWave = wave;
     for (const voice of this.voices) {
-      voice.setPeriodicWave(periodicWave);
+      voice.setPeriodicWave(wave);
     }
   }
 
@@ -221,6 +260,10 @@ class MultiOscillator implements OscillatorNode {
     );
   }
 
+  /**
+   * Specifies the exact time to start playing the tone.
+   * @param when The time, in seconds, at which the sound should begin to play. This value is specified in the same time coordinate system as the [AudioContext](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext) is using for its [currentTime](https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/currentTime) attribute. A value of 0 (or omitting the when parameter entirely) causes the sound to start playback immediately.
+   */
   start(when?: number) {
     this._started = true;
     this._startTime = when;
@@ -231,6 +274,10 @@ class MultiOscillator implements OscillatorNode {
     this._frequency.start(when);
   }
 
+  /**
+   * Specifies the time to stop playing the tone.
+   * @param when The time, in seconds, at which the sound should stop playing. This value is specified in the same time coordinate system as the [AudioContext](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext) is using for its [currentTime](https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/currentTime) attribute. Omitting this parameter, specifying a value of 0, or passing a negative value causes the sound to stop playback immediately.
+   */
   stop(when?: number) {
     this._stopped = true;
     this._stopTime = when;
@@ -292,18 +339,25 @@ class MultiOscillator implements OscillatorNode {
   }
 }
 
-export class UnisonOscillator extends MultiOscillator {
-  _spread: ConstantSourceNode;
-  _mus: GainNode[];
+export interface UnisonOscillatorOptions extends MultiOscillatorOptions {
+  spread: number;
+}
 
-  constructor(context: BaseAudioContext) {
-    super(context);
-    const spread = context.createConstantSource();
-    spread.offset.setValueAtTime(0, context.currentTime);
+/**
+ * A group of oscillators playing in unison slightly spread in frequency.
+ */
+export class UnisonOscillator extends MultiOscillator {
+  private _spread: ConstantSourceNode;
+  private _mus: GainNode[];
+
+  constructor(context: BaseAudioContext, options?: UnisonOscillatorOptions) {
+    super(context, options);
+    const spread = new ConstantSourceNode(context, {
+      offset: options?.spread ?? 0,
+    });
 
     const voice = this.voices[0];
-    const mu = this.context.createGain();
-    mu.gain.setValueAtTime(0, this.context.currentTime);
+    const mu = new GainNode(context, {gain: 0});
     spread.connect(mu).connect(voice.frequency);
     voice.addEventListener('ended', () => {
       spread.disconnect(mu);
@@ -314,8 +368,8 @@ export class UnisonOscillator extends MultiOscillator {
     this._mus = [mu];
   }
 
-  set numVoices(newValue: number) {
-    super.numVoices = newValue;
+  set numberOfVoices(newValue: number) {
+    super.numberOfVoices = newValue;
 
     while (this._mus.length > newValue) {
       this._mus.pop()!.disconnect();
@@ -348,6 +402,9 @@ export class UnisonOscillator extends MultiOscillator {
     }
   }
 
+  /**
+   * An [a-rate](https://developer.mozilla.org/en-US/docs/Web/API/AudioParam#a-rate) [AudioParam](https://developer.mozilla.org/en-US/docs/Web/API/AudioParam) representing spread of oscillation in Hertz (though the `AudioParam` returned is read-only, the value it represents is not). The default value is 0.
+   */
   get spread() {
     return this._spread.offset;
   }
@@ -371,16 +428,38 @@ export class UnisonOscillator extends MultiOscillator {
   }
 }
 
+export interface AperiodicOscillatorOptions
+  extends Omit<
+    MultiOscillatorOptions,
+    'type' | 'periodicWave' | 'numberOfVoices'
+  > {
+  aperiodicWave?: AperiodicWave;
+}
+
+/**
+ * Aperiodic oscillator with an inharmonic frequency spectrum.
+ */
 export class AperiodicOscillator extends MultiOscillator {
-  setAperiodicWave(aperiodicWave: AperiodicWave) {
-    const detunings = aperiodicWave.detunings;
-    this.numVoices = detunings.length;
+  constructor(context: BaseAudioContext, options?: AperiodicOscillatorOptions) {
+    super(context, options);
+    if (options?.aperiodicWave !== undefined) {
+      this.setAperiodicWave(options.aperiodicWave);
+    }
+  }
+
+  /**
+   * Sets an {@link AperiodicWave} which describes an aperiodic waveform to be used.
+   * @param wave An {@link AperiodicWave} object representing the waveform to use as the shape of the oscillator's output.
+   */
+  setAperiodicWave(wave: AperiodicWave) {
+    const detunings = wave.detunings;
+    this.numberOfVoices = detunings.length;
     for (let i = 0; i < detunings.length; ++i) {
       this.voices[i].detune.setValueAtTime(
         detunings[i],
         this.context.currentTime
       );
-      this.voices[i].setPeriodicWave(aperiodicWave.periodicWaves[i]);
+      this.voices[i].setPeriodicWave(wave.periodicWaves[i]);
     }
   }
 }
