@@ -1,13 +1,49 @@
 import {allocateVoices} from './harmonic-allocator';
 
+export class AperiodicWave {
+  detunings: number[];
+  periodicWaves: PeriodicWave[];
+
+  constructor(
+    context: BaseAudioContext,
+    spectrum: number[],
+    amplitudes: number[],
+    maxVoices: number,
+    jnd: number
+  ) {
+    const [detunings, voiceAmplitudes] = allocateVoices(
+      spectrum,
+      amplitudes,
+      maxVoices,
+      jnd
+    );
+
+    this.detunings = detunings;
+    this.periodicWaves = [];
+    for (const voiceAmplitude of voiceAmplitudes) {
+      const periodicWave = context.createPeriodicWave(
+        voiceAmplitude.map(() => 0),
+        voiceAmplitude,
+        {disableNormalization: true}
+      );
+      this.periodicWaves.push(periodicWave);
+    }
+  }
+}
+
 class MultiOscillator implements OscillatorNode {
-  context: AudioContext;
+  context: BaseAudioContext;
   voices: OscillatorNode[];
   _detune: ConstantSourceNode;
   _frequency: ConstantSourceNode;
   _gain: GainNode;
+  _periodicWave?: PeriodicWave;
+  _started: boolean;
+  _startTime?: number;
+  _stopped: boolean;
+  _stopTime?: number;
 
-  constructor(context: AudioContext, numVoices: number) {
+  constructor(context: BaseAudioContext) {
     this.context = context;
     const detune = context.createConstantSource();
     detune.offset.setValueAtTime(0, context.currentTime);
@@ -15,23 +51,79 @@ class MultiOscillator implements OscillatorNode {
     frequency.offset.setValueAtTime(440, context.currentTime);
     const gain = context.createGain();
 
-    this.voices = [];
-    for (let i = 0; i < numVoices; ++i) {
-      const voice = context.createOscillator();
-      voice.frequency.setValueAtTime(0, context.currentTime);
-      voice.connect(gain);
-      detune.connect(voice.detune);
-      frequency.connect(voice.frequency);
-      voice.addEventListener('ended', () => {
-        voice.disconnect(gain);
-        detune.disconnect(voice.detune);
-        frequency.disconnect(voice.frequency);
-      });
-      this.voices.push(voice);
-    }
+    const voice = this.context.createOscillator();
+    voice.frequency.setValueAtTime(0, this.context.currentTime);
+    voice.connect(gain);
+    detune.connect(voice.detune);
+    frequency.connect(voice.frequency);
+    voice.addEventListener('ended', () => {
+      voice.disconnect(gain);
+      detune.disconnect(voice.detune);
+      frequency.disconnect(voice.frequency);
+    });
+
+    this.voices = [voice];
+
     this._detune = detune;
     this._frequency = frequency;
     this._gain = gain;
+
+    this._started = false;
+    this._stopped = false;
+  }
+
+  dispose() {
+    for (const voice of this.voices) {
+      voice.stop();
+      voice.disconnect();
+    }
+    this._detune.stop();
+    this._detune.disconnect();
+    this._frequency.stop();
+    this._frequency.disconnect();
+    this._gain.disconnect();
+  }
+
+  get numVoices() {
+    return this.voices.length;
+  }
+
+  set numVoices(newValue: number) {
+    if (newValue < 1) {
+      throw new Error('At least one voice must be present');
+    }
+    while (this.voices.length > newValue) {
+      const voice = this.voices.pop()!;
+      voice.stop();
+      voice.disconnect();
+    }
+    while (this.voices.length < newValue) {
+      const voice = this.context.createOscillator();
+      if (this.type === 'custom') {
+        if (!this._periodicWave) {
+          throw new Error("Periodic wave must be set when type = 'custom'");
+        }
+        voice.setPeriodicWave(this._periodicWave);
+      } else {
+        voice.type = this.type;
+      }
+      voice.frequency.setValueAtTime(0, this.context.currentTime);
+      voice.connect(this._gain);
+      this._detune.connect(voice.detune);
+      this._frequency.connect(voice.frequency);
+      voice.addEventListener('ended', () => {
+        voice.disconnect(this._gain);
+        this._detune.disconnect(voice.detune);
+        this._frequency.disconnect(voice.frequency);
+      });
+      if (this._started) {
+        voice.start(this._startTime);
+        if (this._stopped) {
+          voice.stop(this._stopTime);
+        }
+      }
+      this.voices.push(voice);
+    }
   }
 
   get detune() {
@@ -77,6 +169,7 @@ class MultiOscillator implements OscillatorNode {
   }
 
   setPeriodicWave(periodicWave: PeriodicWave) {
+    this._periodicWave = periodicWave;
     for (const voice of this.voices) {
       voice.setPeriodicWave(periodicWave);
     }
@@ -129,6 +222,8 @@ class MultiOscillator implements OscillatorNode {
   }
 
   start(when?: number) {
+    this._started = true;
+    this._startTime = when;
     for (const voice of this.voices) {
       voice.start(when);
     }
@@ -137,6 +232,8 @@ class MultiOscillator implements OscillatorNode {
   }
 
   stop(when?: number) {
+    this._stopped = true;
+    this._stopTime = when;
     for (const voice of this.voices) {
       voice.stop(when);
     }
@@ -195,34 +292,60 @@ class MultiOscillator implements OscillatorNode {
   }
 }
 
-// TODO: Frequency-space variant
 export class UnisonOscillator extends MultiOscillator {
   _spread: ConstantSourceNode;
   _mus: GainNode[];
 
-  constructor(context: AudioContext, numVoices: number) {
-    super(context, numVoices);
-    this._gain.gain.setValueAtTime(
-      1 / Math.sqrt(numVoices),
-      context.currentTime
-    );
+  constructor(context: BaseAudioContext) {
+    super(context);
     const spread = context.createConstantSource();
-    this._mus = [];
-    for (let i = 0; i < numVoices; ++i) {
-      const mu = context.createGain();
-      mu.gain.setValueAtTime(
-        (2 * i) / (numVoices - 1) - 1,
-        context.currentTime
-      );
-      const voice = this.voices[i];
-      spread.connect(mu).connect(voice.detune);
+    spread.offset.setValueAtTime(0, context.currentTime);
+
+    const voice = this.voices[0];
+    const mu = this.context.createGain();
+    mu.gain.setValueAtTime(0, this.context.currentTime);
+    spread.connect(mu).connect(voice.frequency);
+    voice.addEventListener('ended', () => {
+      spread.disconnect(mu);
+      mu.disconnect(voice.frequency);
+    });
+
+    this._spread = spread;
+    this._mus = [mu];
+  }
+
+  set numVoices(newValue: number) {
+    super.numVoices = newValue;
+
+    while (this._mus.length > newValue) {
+      this._mus.pop()!.disconnect();
+    }
+    while (this._mus.length < newValue) {
+      const voice = this.voices[this._mus.length];
+      const mu = this.context.createGain();
+      this._spread.connect(mu).connect(voice.frequency);
       voice.addEventListener('ended', () => {
-        spread.disconnect(mu);
-        mu.disconnect(voice.detune);
+        this._spread.disconnect(mu);
+        mu.disconnect(voice.frequency);
       });
       this._mus.push(mu);
     }
-    this._spread = spread;
+
+    this._gain.gain.setValueAtTime(
+      1 / Math.sqrt(newValue),
+      this.context.currentTime
+    );
+
+    // Special handling for the degenerate case.
+    if (newValue === 1) {
+      this._mus[0].gain.setValueAtTime(0, this.context.currentTime);
+      return;
+    }
+
+    for (let i = 0; i < newValue; ++i) {
+      const gain = (2 * i) / (newValue - 1) - 1;
+      this._mus[i].gain.setValueAtTime(gain, this.context.currentTime);
+    }
   }
 
   get spread() {
@@ -249,37 +372,15 @@ export class UnisonOscillator extends MultiOscillator {
 }
 
 export class AperiodicOscillator extends MultiOscillator {
-  constructor(context: AudioContext, numVoices: number) {
-    super(context, numVoices);
-  }
-
-  setAperiodicWave(spectrum: number[], amplitudes: number[], jnd = 0.5) {
-    const [detunings, voiceAmplitudes] = allocateVoices(
-      spectrum,
-      amplitudes,
-      this.voices.length,
-      jnd
-    );
+  setAperiodicWave(aperiodicWave: AperiodicWave) {
+    const detunings = aperiodicWave.detunings;
+    this.numVoices = detunings.length;
     for (let i = 0; i < detunings.length; ++i) {
       this.voices[i].detune.setValueAtTime(
         detunings[i],
         this.context.currentTime
       );
-      const wave = this.context.createPeriodicWave(
-        voiceAmplitudes[i].map(() => 0),
-        voiceAmplitudes[i],
-        {disableNormalization: true}
-      );
-      this.voices[i].setPeriodicWave(wave);
-    }
-    // Silence unused voices
-    const silence = this.context.createPeriodicWave(
-      new Float32Array([0, 0]),
-      new Float32Array([0, 0]),
-      {disableNormalization: true}
-    );
-    for (let i = detunings.length; i < this.voices.length; ++i) {
-      this.voices[i].setPeriodicWave(silence);
+      this.voices[i].setPeriodicWave(aperiodicWave.periodicWaves[i]);
     }
   }
 }
