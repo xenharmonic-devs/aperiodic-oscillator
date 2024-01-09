@@ -1,6 +1,6 @@
 {
   "name": "aperiodic-oscillator",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "Non-periodic replacement for OscillatorNode from Web Audio API",
   "funding": {
     "type": "github",
