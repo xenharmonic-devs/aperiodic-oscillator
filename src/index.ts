@@ -463,6 +463,8 @@ export class AperiodicOscillator extends MultiOscillator {
    */
   setAperiodicWave(wave: AperiodicWave) {
     const detunings = wave.detunings;
+    // We're bypassing this._periodicWave so we have to fall back to simpler operation in order to increase voice count.
+    this.type = 'sine';
     this.numberOfVoices = detunings.length;
     for (let i = 0; i < detunings.length; ++i) {
       this.voices[i].detune.setValueAtTime(
