@@ -95,12 +95,9 @@ export class MultiOscillator implements OscillatorNode {
   dispose() {
     for (const voice of this.voices) {
       voice.stop();
-      voice.disconnect();
     }
     this._detune.stop();
-    this._detune.disconnect();
     this._frequency.stop();
-    this._frequency.disconnect();
     this._gain.disconnect();
   }
 
@@ -122,7 +119,6 @@ export class MultiOscillator implements OscillatorNode {
     while (this.voices.length > newValue) {
       const voice = this.voices.pop()!;
       voice.stop();
-      voice.disconnect();
     }
     while (this.voices.length < newValue) {
       const voice = new OscillatorNode(this.context, this._options);
@@ -353,19 +349,27 @@ export interface UnisonOscillatorOptions extends OscillatorOptions {
 export class UnisonOscillator extends MultiOscillator {
   private _spread: ConstantSourceNode;
   private _mus: GainNode[];
+  private mode: 'frequency' | 'detune';
 
-  constructor(context: BaseAudioContext, options?: UnisonOscillatorOptions) {
+  constructor(
+    context: BaseAudioContext,
+    options?: UnisonOscillatorOptions,
+    mode: 'frequency' | 'detune' = 'detune'
+  ) {
     super(context, options);
+    this.mode = mode;
     const spread = new ConstantSourceNode(context, {
       offset: options?.spread ?? 0,
     });
 
     const voice = this.voices[0];
     const mu = new GainNode(context, {gain: 0});
-    spread.connect(mu).connect(voice.frequency);
+    spread
+      .connect(mu)
+      .connect(mode === 'frequency' ? voice.frequency : voice.detune);
     voice.addEventListener('ended', () => {
       spread.disconnect(mu);
-      mu.disconnect(voice.frequency);
+      mu.disconnect(mode === 'frequency' ? voice.frequency : voice.detune);
     });
 
     this._spread = spread;
@@ -376,16 +380,20 @@ export class UnisonOscillator extends MultiOscillator {
   set numberOfVoices(newValue: number) {
     super.numberOfVoices = newValue;
 
+    const mode = this.mode;
+
     while (this._mus.length > newValue) {
-      this._mus.pop()!.disconnect();
+      this._mus.pop();
     }
     while (this._mus.length < newValue) {
       const voice = this.voices[this._mus.length];
       const mu = this.context.createGain();
-      this._spread.connect(mu).connect(voice.frequency);
+      this._spread
+        .connect(mu)
+        .connect(mode === 'frequency' ? voice.frequency : voice.detune);
       voice.addEventListener('ended', () => {
         this._spread.disconnect(mu);
-        mu.disconnect(voice.frequency);
+        mu.disconnect(mode === 'frequency' ? voice.frequency : voice.detune);
       });
       this._mus.push(mu);
     }
