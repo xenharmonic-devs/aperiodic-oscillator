@@ -20,7 +20,7 @@
     "pretest": "npm run compile",
     "posttest": "npm run lint",
     "test": "vitest",
-    "doc": "typedoc src/index.ts . --name aperiodic-oscillator"
+    "doc": "typedoc src/index.ts --name aperiodic-oscillator"
   },
   "repository": {
     "type": "git",
