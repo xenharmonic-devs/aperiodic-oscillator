@@ -153,6 +153,27 @@ describe('Unison Oscillator', () => {
 });
 
 describe('Aperiodic Oscillator', () => {
+  it('throws when spectrum and amplitudes lengths differ', () => {
+    expect(() => new AperiodicWave(context, [1, 2], [1], 2, 0.1)).toThrow(
+      /amplitudes\.length \(1\) must equal spectrum\.length \(2\)/,
+    );
+  });
+
+  it('throws for invalid numeric constructor inputs', () => {
+    expect(() => new AperiodicWave(context, [1], [1], 0, 0.1)).toThrow(
+      /maxNumberOfVoices/,
+    );
+    expect(() => new AperiodicWave(context, [1], [1], 1, -0.1)).toThrow(
+      /tolerance/,
+    );
+    expect(() => new AperiodicWave(context, [0], [1], 1, 0.1)).toThrow(
+      /spectrum/,
+    );
+    expect(() => new AperiodicWave(context, [1], [-1], 1, 0.1)).toThrow(
+      /amplitudes/,
+    );
+  });
+
   it('Allocates voices on intialization', () => {
     const ns = [...Array(129).keys()];
     ns.shift();

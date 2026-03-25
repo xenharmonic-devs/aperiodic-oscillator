@@ -1,4 +1,4 @@
-import {allocateVoices} from './harmonic-allocator';
+import {allocateVoices, validateAllocationInputs} from './harmonic-allocator';
 
 /**
  * The {@link AperiodicWave} interface defines an aperiodic waveform that can be used to shape the output of an {@link AperiodicOscillator}.
@@ -22,6 +22,12 @@ export class AperiodicWave {
     maxNumberOfVoices: number,
     tolerance: number,
   ) {
+    validateAllocationInputs(
+      spectrum,
+      amplitudes,
+      maxNumberOfVoices,
+      tolerance,
+    );
     const [detunings, voiceAmplitudes] = allocateVoices(
       spectrum,
       amplitudes,

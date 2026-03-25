@@ -6,6 +6,37 @@ function centsToValue(c: number) {
 }
 
 describe('Harmonic allocator', () => {
+  it('throws when spectrum and amplitudes lengths differ', () => {
+    expect(() => allocateVoices([1, 2], [1], 2, 0.5)).toThrow(
+      /amplitudes\.length \(1\) must equal spectrum\.length \(2\)/,
+    );
+  });
+
+  it('throws for invalid maxNumberOfVoices', () => {
+    expect(() => allocateVoices([1], [1], 0, 0.5)).toThrow(/maxNumberOfVoices/);
+    expect(() => allocateVoices([1], [1], 2.75, 0.5)).toThrow(
+      /finite integer >= 1/,
+    );
+  });
+
+  it('throws for invalid tolerance', () => {
+    expect(() => allocateVoices([1], [1], 1, -0.1)).toThrow(/tolerance/);
+  });
+
+  it('throws for invalid spectrum values', () => {
+    expect(() => allocateVoices([1, 0], [1, 1], 2, 0.5)).toThrow(/spectrum/);
+    expect(() => allocateVoices([1, Infinity], [1, 1], 2, 0.5)).toThrow(
+      /spectrum/,
+    );
+  });
+
+  it('throws for invalid amplitudes values', () => {
+    expect(() => allocateVoices([1, 2], [1, -1], 2, 0.5)).toThrow(/amplitudes/);
+    expect(() => allocateVoices([1, 2], [1, NaN], 2, 0.5)).toThrow(
+      /amplitudes/,
+    );
+  });
+
   it('easily allocates harmonics', () => {
     const [detunings, voiceAmplitudes] = allocateVoices(
       [1, 2, 3, 4, 5],

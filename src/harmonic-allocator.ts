@@ -2,6 +2,51 @@ function valueToCents(x: number) {
   return Math.log2(x) * 1200;
 }
 
+export function validateAllocationInputs(
+  spectrum: number[],
+  amplitudes: number[],
+  maxNumberOfVoices: number,
+  tolerance: number,
+) {
+  if (spectrum.length !== amplitudes.length) {
+    throw new Error(
+      `Invalid parameter "amplitudes": amplitudes.length (${amplitudes.length}) must equal spectrum.length (${spectrum.length})`,
+    );
+  }
+
+  if (
+    !Number.isFinite(maxNumberOfVoices) ||
+    !Number.isInteger(maxNumberOfVoices) ||
+    maxNumberOfVoices < 1
+  ) {
+    throw new Error(
+      `Invalid parameter "maxNumberOfVoices": expected a finite integer >= 1, received ${maxNumberOfVoices}`,
+    );
+  }
+
+  if (!Number.isFinite(tolerance) || tolerance < 0) {
+    throw new Error(
+      `Invalid parameter "tolerance": expected a finite number >= 0, received ${tolerance}`,
+    );
+  }
+
+  for (let i = 0; i < spectrum.length; ++i) {
+    if (!Number.isFinite(spectrum[i]) || spectrum[i] <= 0) {
+      throw new Error(
+        `Invalid parameter "spectrum": spectrum[${i}] must be a finite number > 0, received ${spectrum[i]}`,
+      );
+    }
+  }
+
+  for (let i = 0; i < amplitudes.length; ++i) {
+    if (!Number.isFinite(amplitudes[i]) || amplitudes[i] < 0) {
+      throw new Error(
+        `Invalid parameter "amplitudes": amplitudes[${i}] must be a finite number >= 0, received ${amplitudes[i]}`,
+      );
+    }
+  }
+}
+
 export function centsError(a: number, b: number) {
   return Math.abs(valueToCents(a / b));
 }
@@ -58,6 +103,7 @@ export function allocateVoices(
   maxNumberOfVoices: number,
   tolerance: number,
 ): [number[], Float32Array[]] {
+  validateAllocationInputs(spectrum, amplitudes, maxNumberOfVoices, tolerance);
   const voiceRatios = allocateRatios(spectrum, maxNumberOfVoices, tolerance);
   const voiceAmplitudes: number[][] = voiceRatios.map(() => []);
   for (let i = 0; i < spectrum.length; ++i) {
