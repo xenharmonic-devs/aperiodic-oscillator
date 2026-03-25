@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import {describe, it, expect, vi} from 'vitest';
-import {AperiodicOscillator, AperiodicWave, UnisonOscillator} from '../';
+import {beforeEach, describe, it, expect, vi} from 'vitest';
+import {
+  AperiodicOscillator,
+  AperiodicWave,
+  MultiOscillator,
+  UnisonOscillator,
+} from '../';
 
 class MockAudioNode {
   constructor(context: MockAudioContext) {}
@@ -8,6 +13,12 @@ class MockAudioNode {
   connect(destinationNode: AudioNode) {
     return destinationNode;
   }
+
+  disconnect() {}
+
+  start(when?: number) {}
+
+  stop(when?: number) {}
 }
 
 class MockAudioParam {
@@ -31,15 +42,44 @@ class MockConstantSourceNode extends MockAudioNode {
 class MockOscillatorNode extends MockAudioNode {
   type: OscillatorType = 'sine';
   detune: MockAudioParam;
+  frequency: MockAudioParam;
+  private started = false;
+  private endedListeners: (() => void)[] = [];
+
+  static stopCalls = 0;
+  static resetCounters() {
+    MockOscillatorNode.stopCalls = 0;
+  }
 
   constructor(context: MockAudioContext) {
     super(context);
     this.detune = new MockAudioParam();
+    this.frequency = new MockAudioParam();
   }
 
   setPeriodicWave(wave: PeriodicWave) {}
 
-  addEventListener(type: 'ended', listener: () => void) {}
+  addEventListener(type: 'ended', listener: () => void) {
+    this.endedListeners.push(listener);
+  }
+
+  start(when?: number) {
+    this.started = true;
+  }
+
+  stop(when?: number) {
+    MockOscillatorNode.stopCalls += 1;
+    if (!this.started) {
+      const invalidStateError = new Error(
+        'Cannot call stop before start: InvalidStateError',
+      );
+      invalidStateError.name = 'InvalidStateError';
+      throw invalidStateError;
+    }
+    for (const listener of this.endedListeners) {
+      listener();
+    }
+  }
 }
 
 class MockGainNode extends MockAudioNode {
@@ -64,6 +104,32 @@ vi.stubGlobal('OscillatorNode', MockOscillatorNode);
 vi.stubGlobal('GainNode', MockGainNode);
 
 const context = new MockAudioContext() as unknown as AudioContext;
+
+beforeEach(() => {
+  MockOscillatorNode.resetCounters();
+});
+
+describe('MultiOscillator lifecycle', () => {
+  it('Can reduce voices before start without stopping unstarted voices', () => {
+    const oscillator = new MultiOscillator(context, {frequency: 440});
+    oscillator.numberOfVoices = 3;
+
+    expect(() => {
+      oscillator.numberOfVoices = 1;
+    }).not.toThrow();
+    expect(MockOscillatorNode.stopCalls).toBe(0);
+  });
+
+  it('Can dispose before start without stopping unstarted voices', () => {
+    const oscillator = new MultiOscillator(context, {frequency: 440});
+    oscillator.numberOfVoices = 2;
+
+    expect(() => {
+      oscillator.dispose();
+    }).not.toThrow();
+    expect(MockOscillatorNode.stopCalls).toBe(0);
+  });
+});
 
 describe('Unison Oscillator', () => {
   it('Allocates voices on intialization (default)', () => {

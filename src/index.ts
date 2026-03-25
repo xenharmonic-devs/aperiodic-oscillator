@@ -94,7 +94,16 @@ export class MultiOscillator implements OscillatorNode {
    */
   dispose() {
     for (const voice of this.voices) {
-      voice.stop();
+      this._disconnectVoice(voice);
+      if (this._started) {
+        try {
+          voice.stop();
+        } catch (error) {
+          if (!this._isIgnorableStopError(error)) {
+            throw error;
+          }
+        }
+      }
     }
     this._detune.stop();
     this._frequency.stop();
@@ -118,7 +127,16 @@ export class MultiOscillator implements OscillatorNode {
     }
     while (this.voices.length > newValue) {
       const voice = this.voices.pop()!;
-      voice.stop();
+      this._disconnectVoice(voice);
+      if (this._started) {
+        try {
+          voice.stop();
+        } catch (error) {
+          if (!this._isIgnorableStopError(error)) {
+            throw error;
+          }
+        }
+      }
     }
     while (this.voices.length < newValue) {
       const voice = new OscillatorNode(this.context, this._options);
@@ -335,6 +353,22 @@ export class MultiOscillator implements OscillatorNode {
     this._detune.dispatchEvent(event);
     this._frequency.dispatchEvent(event);
     return this._gain.dispatchEvent(event);
+  }
+
+  private _disconnectVoice(voice: OscillatorNode) {
+    voice.disconnect(this._gain);
+    this._detune.disconnect(voice.detune);
+    this._frequency.disconnect(voice.frequency);
+  }
+
+  private _isIgnorableStopError(error: unknown) {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+    return (
+      error.name === 'InvalidStateError' ||
+      error.message.includes('InvalidStateError')
+    );
   }
 }
 
