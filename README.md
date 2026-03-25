@@ -34,8 +34,17 @@ const tine = new AperiodicOscillator(context, {aperiodicWave: timbre});
 ```
 
 ## Installation ##
+Install the published package:
+
 ```bash
-npm i
+npm install aperiodic-oscillator
+```
+
+## Development ##
+Set up the repository locally:
+
+```bash
+npm install
 ```
 
 ## Documentation ##
