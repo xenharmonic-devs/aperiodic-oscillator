@@ -20,13 +20,13 @@ export class AperiodicWave {
     spectrum: number[],
     amplitudes: number[],
     maxNumberOfVoices: number,
-    tolerance: number
+    tolerance: number,
   ) {
     const [detunings, voiceAmplitudes] = allocateVoices(
       spectrum,
       amplitudes,
       maxNumberOfVoices,
-      tolerance
+      tolerance,
     );
 
     this.detunings = detunings;
@@ -35,7 +35,7 @@ export class AperiodicWave {
       const periodicWave = context.createPeriodicWave(
         voiceAmplitude.map(() => 0),
         voiceAmplitude,
-        {disableNormalization: true}
+        {disableNormalization: true},
       );
       this.periodicWaves.push(periodicWave);
     }
@@ -217,20 +217,20 @@ export class MultiOscillator implements OscillatorNode {
     type: K,
     listener: (
       this: OscillatorNode,
-      ev: AudioScheduledSourceNodeEventMap[K]
+      ev: AudioScheduledSourceNodeEventMap[K],
     ) => any,
-    options?: boolean | AddEventListenerOptions | undefined
+    options?: boolean | AddEventListenerOptions | undefined,
   ): void;
   addEventListener(
     type: string,
     listener: EventListenerOrEventListenerObject,
-    options?: boolean | AddEventListenerOptions | undefined
+    options?: boolean | AddEventListenerOptions | undefined,
   ): void;
   addEventListener(type: unknown, listener: unknown, options?: unknown): void {
     this.voices[0].addEventListener(
       type as any,
       listener as any,
-      options as any
+      options as any,
     );
   }
 
@@ -238,24 +238,24 @@ export class MultiOscillator implements OscillatorNode {
     type: K,
     listener: (
       this: OscillatorNode,
-      ev: AudioScheduledSourceNodeEventMap[K]
+      ev: AudioScheduledSourceNodeEventMap[K],
     ) => any,
-    options?: boolean | EventListenerOptions | undefined
+    options?: boolean | EventListenerOptions | undefined,
   ): void;
   removeEventListener(
     type: string,
     listener: EventListenerOrEventListenerObject,
-    options?: boolean | EventListenerOptions | undefined
+    options?: boolean | EventListenerOptions | undefined,
   ): void;
   removeEventListener(
     type: unknown,
     listener: unknown,
-    options?: unknown
+    options?: unknown,
   ): void {
     this.voices[0].removeEventListener(
       type as any,
       listener as any,
-      options as any
+      options as any,
     );
   }
 
@@ -290,18 +290,18 @@ export class MultiOscillator implements OscillatorNode {
   connect(
     destinationNode: AudioNode,
     output?: number | undefined,
-    input?: number | undefined
+    input?: number | undefined,
   ): AudioNode;
   connect(destinationParam: AudioParam, output?: number | undefined): void;
   connect(
     destinationNode: unknown,
     output?: unknown,
-    input?: unknown
+    input?: unknown,
   ): void | AudioNode {
     return this._gain.connect(
       destinationNode as any,
       output as any,
-      input as any
+      input as any,
     );
   }
 
@@ -315,7 +315,7 @@ export class MultiOscillator implements OscillatorNode {
   disconnect(
     destinationNode?: unknown,
     output?: unknown,
-    input?: unknown
+    input?: unknown,
   ): void {
     if (destinationNode === undefined) {
       this._gain.disconnect();
@@ -323,7 +323,7 @@ export class MultiOscillator implements OscillatorNode {
       this._gain.disconnect(
         destinationNode as any,
         output as any,
-        input as any
+        input as any,
       );
     }
   }
@@ -354,7 +354,7 @@ export class UnisonOscillator extends MultiOscillator {
   constructor(
     context: BaseAudioContext,
     options?: UnisonOscillatorOptions,
-    mode: 'frequency' | 'detune' = 'detune'
+    mode: 'frequency' | 'detune' = 'detune',
   ) {
     super(context, options);
     this.mode = mode;
@@ -400,7 +400,7 @@ export class UnisonOscillator extends MultiOscillator {
 
     this._gain.gain.setValueAtTime(
       1 / Math.sqrt(newValue),
-      this.context.currentTime
+      this.context.currentTime,
     );
 
     // Special handling for the degenerate case.
@@ -441,8 +441,10 @@ export class UnisonOscillator extends MultiOscillator {
   }
 }
 
-export interface AperiodicOscillatorOptions
-  extends Omit<OscillatorOptions, 'type' | 'periodicWave'> {
+export interface AperiodicOscillatorOptions extends Omit<
+  OscillatorOptions,
+  'type' | 'periodicWave'
+> {
   aperiodicWave?: AperiodicWave;
 }
 
@@ -469,7 +471,7 @@ export class AperiodicOscillator extends MultiOscillator {
     for (let i = 0; i < detunings.length; ++i) {
       this.voices[i].detune.setValueAtTime(
         detunings[i],
-        this.context.currentTime
+        this.context.currentTime,
       );
       this.voices[i].setPeriodicWave(wave.periodicWaves[i]);
     }

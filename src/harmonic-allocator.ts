@@ -16,7 +16,7 @@ export function centsError(a: number, b: number) {
 function allocateRatios(
   spectrum: number[],
   maxNumberOfVoices: number,
-  tolerance: number
+  tolerance: number,
 ) {
   const result: number[] = [];
   allocation: for (const ratio of spectrum) {
@@ -56,7 +56,7 @@ export function allocateVoices(
   spectrum: number[],
   amplitudes: number[],
   maxNumberOfVoices: number,
-  tolerance: number
+  tolerance: number,
 ): [number[], Float32Array[]] {
   const voiceRatios = allocateRatios(spectrum, maxNumberOfVoices, tolerance);
   const voiceAmplitudes: number[][] = voiceRatios.map(() => []);

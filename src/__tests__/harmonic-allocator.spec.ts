@@ -11,7 +11,7 @@ describe('Harmonic allocator', () => {
       [1, 2, 3, 4, 5],
       [10, 9, 8, 7, 6],
       10,
-      0.5
+      0.5,
     );
     expect(detunings).toEqual([0]);
     expect(voiceAmplitudes[0]).toEqual(new Float32Array([0, 10, 9, 8, 7, 6]));
@@ -26,7 +26,7 @@ describe('Harmonic allocator', () => {
       spectrum,
       amplitudes,
       9,
-      jnd
+      jnd,
     );
     let numFound = 0;
     let numNonZero = 0;
@@ -60,7 +60,7 @@ describe('Harmonic allocator', () => {
       spectrum,
       amplitudes,
       6,
-      0.5
+      0.5,
     );
     let maxError = 0;
     let numNonZero = 0;

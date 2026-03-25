@@ -99,7 +99,7 @@ describe('Aperiodic Oscillator', () => {
       spectrum,
       amplitudes,
       maxNumberOfVoices,
-      tolerance
+      tolerance,
     );
 
     const oscillator = new AperiodicOscillator(context, {aperiodicWave});
