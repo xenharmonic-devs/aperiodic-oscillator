@@ -2,36 +2,63 @@
 Non-periodic replacement for OscillatorNode from Web Audio API
 
 ## Examples
-```typescript
-// Standard Web Audio API
-const context = new AudioContext();
-const saw = new OscillatorNode(context, {type: 'sawtooth'});
 
-// Unison oscillator consisting of five voices spread ±6.9 Hz in frequency.
+### Quick start (unison supersaw)
+```typescript
+import {UnisonOscillator} from 'aperiodic-oscillator';
+
+const context = new AudioContext();
+
 const supersaw = new UnisonOscillator(context, {
   type: 'sawtooth',
   numberOfVoices: 5,
   spread: 6.9,
+  frequency: 110,
 });
 
-// Construct an inharmonic timbre
-const ns = [...Array(129).keys()];
-ns.shift();
-const spectrum = ns.map(n => n ** 1.5);
-const amplitudes = ns.map(n => 0.3 * n ** -1.5);
-const maxNumberOfVoices = 7;
-const tolerance = 0.1; // In cents
+const output = context.createGain();
+output.gain.value = 0.2;
+supersaw.connect(output);
+output.connect(context.destination);
+
+supersaw.start();
+supersaw.stop(context.currentTime + 2);
+```
+
+### Inharmonic timbre (aperiodic wave)
+```typescript
+import {AperiodicOscillator, AperiodicWave} from 'aperiodic-oscillator';
+
+const context = new AudioContext();
+
+const partials = Array.from({length: 128}, (_, i) => i + 1);
+const spectrum = partials.map(n => n ** 1.5); // inharmonic partial ratios
+const amplitudes = partials.map(n => 0.3 * n ** -1.5);
+
 const timbre = new AperiodicWave(
   context,
   spectrum,
   amplitudes,
-  maxNumberOfVoices,
-  tolerance
+  7, // maxNumberOfVoices
+  0.1 // tolerance in cents
 );
 
-// Aperiodic oscillator with an inharmonic timbre
-const tine = new AperiodicOscillator(context, {aperiodicWave: timbre});
+const tine = new AperiodicOscillator(context, {
+  aperiodicWave: timbre,
+  frequency: 220,
+});
+
+const output = context.createGain();
+output.gain.value = 0.2;
+tine.connect(output);
+output.connect(context.destination);
+
+// Optionally schedule a finite note.
+tine.start();
+tine.stop(context.currentTime + 2);
 ```
+
+> **Browser autoplay note:** Most browsers block audio until a user gesture occurs (for example, a button click). If you hear silence, create/resume the `AudioContext` inside a click/tap handler.
 
 ## API Overview
 The package exports four primary public classes from `src/index.ts`: `AperiodicWave`, `MultiOscillator`, `UnisonOscillator`, and `AperiodicOscillator`.
