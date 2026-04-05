@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Expanded README documentation with clearer setup guidance, API usage, and copy-paste-ready examples.
+- Hardened input validation for aperiodic voice allocation.
+- Added guards so `MultiOscillator.stop()` is ignored safely when called before `start()`.
+
 ## [0.2.0] - 2026-04-01
 
 ### Changed
