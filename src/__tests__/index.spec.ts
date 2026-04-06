@@ -8,13 +8,29 @@ import {
 } from '../';
 
 class MockAudioNode {
+  private connections = new Set<unknown>();
+
   constructor(context: MockAudioContext) {}
 
-  connect(destinationNode: AudioNode) {
+  connect(destinationNode: AudioNode | AudioParam) {
+    this.connections.add(destinationNode);
     return destinationNode;
   }
 
-  disconnect() {}
+  disconnect(destinationNode?: AudioNode | AudioParam) {
+    if (destinationNode === undefined) {
+      this.connections.clear();
+      return;
+    }
+    if (!this.connections.has(destinationNode)) {
+      const invalidAccessError = new Error(
+        "Failed to execute 'disconnect' on 'AudioNode': the given destination is not connected.",
+      );
+      invalidAccessError.name = 'InvalidAccessError';
+      throw invalidAccessError;
+    }
+    this.connections.delete(destinationNode);
+  }
 
   start(when?: number) {}
 
@@ -128,6 +144,17 @@ describe('MultiOscillator lifecycle', () => {
       oscillator.dispose();
     }).not.toThrow();
     expect(MockOscillatorNode.stopCalls).toBe(0);
+  });
+
+  it('Can stop after reducing voices without throwing disconnect errors', () => {
+    const oscillator = new MultiOscillator(context, {frequency: 440});
+    oscillator.numberOfVoices = 3;
+    oscillator.start();
+    oscillator.numberOfVoices = 1;
+
+    expect(() => {
+      oscillator.stop();
+    }).not.toThrow();
   });
 });
 
