@@ -80,9 +80,7 @@ export class MultiOscillator implements OscillatorNode {
     detune.connect(voice.detune);
     frequency.connect(voice.frequency);
     voice.addEventListener('ended', () => {
-      voice.disconnect(gain);
-      detune.disconnect(voice.detune);
-      frequency.disconnect(voice.frequency);
+      this._disconnectVoice(voice);
     });
 
     this.voices = [voice];
@@ -158,9 +156,7 @@ export class MultiOscillator implements OscillatorNode {
       this._detune.connect(voice.detune);
       this._frequency.connect(voice.frequency);
       voice.addEventListener('ended', () => {
-        voice.disconnect(this._gain);
-        this._detune.disconnect(voice.detune);
-        this._frequency.disconnect(voice.frequency);
+        this._disconnectVoice(voice);
       });
       if (this._started) {
         voice.start(this._startTime);
@@ -362,9 +358,9 @@ export class MultiOscillator implements OscillatorNode {
   }
 
   private _disconnectVoice(voice: OscillatorNode) {
-    voice.disconnect(this._gain);
-    this._detune.disconnect(voice.detune);
-    this._frequency.disconnect(voice.frequency);
+    this._disconnectIfConnected(voice, this._gain);
+    this._disconnectIfConnected(this._detune, voice.detune);
+    this._disconnectIfConnected(this._frequency, voice.frequency);
   }
 
   private _isIgnorableStopError(error: unknown) {
@@ -375,6 +371,25 @@ export class MultiOscillator implements OscillatorNode {
       error.name === 'InvalidStateError' ||
       error.message.includes('InvalidStateError')
     );
+  }
+
+  private _disconnectIfConnected(
+    source: AudioNode,
+    destination: AudioNode | AudioParam,
+  ) {
+    try {
+      source.disconnect(destination as any);
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+      const isIgnorableDisconnectError =
+        error.name === 'InvalidAccessError' ||
+        error.message.includes('InvalidAccessError');
+      if (!isIgnorableDisconnectError) {
+        throw error;
+      }
+    }
   }
 }
 
