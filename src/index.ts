@@ -1,4 +1,7 @@
-import {allocateVoices, validateAllocationInputs} from './harmonic-allocator';
+import {
+  allocateVoices,
+  validateAllocationInputs,
+} from './harmonic-allocator.js';
 
 /**
  * The {@link AperiodicWave} interface defines an aperiodic waveform that can be used to shape the output of an {@link AperiodicOscillator}.

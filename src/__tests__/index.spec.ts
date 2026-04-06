@@ -5,7 +5,7 @@ import {
   AperiodicWave,
   MultiOscillator,
   UnisonOscillator,
-} from '../';
+} from '../index.js';
 
 class MockAudioNode {
   private connections = new Set<unknown>();
