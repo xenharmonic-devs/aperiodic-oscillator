@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {allocateVoices, centsError} from '../harmonic-allocator';
+import {allocateVoices, centsError} from '../harmonic-allocator.js';
 
 function centsToValue(c: number) {
   return 2 ** (c / 1200);
