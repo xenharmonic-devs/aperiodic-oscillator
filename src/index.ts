@@ -241,7 +241,7 @@ export class MultiOscillator implements OscillatorNode {
     listener: (
       this: OscillatorNode,
       ev: AudioScheduledSourceNodeEventMap[K],
-    ) => any,
+    ) => void,
     options?: boolean | AddEventListenerOptions | undefined,
   ): void;
   addEventListener(
@@ -249,12 +249,12 @@ export class MultiOscillator implements OscillatorNode {
     listener: EventListenerOrEventListenerObject,
     options?: boolean | AddEventListenerOptions | undefined,
   ): void;
-  addEventListener(type: unknown, listener: unknown, options?: unknown): void {
-    this.voices[0].addEventListener(
-      type as any,
-      listener as any,
-      options as any,
-    );
+  addEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions | undefined,
+  ): void {
+    this.voices[0].addEventListener(type, listener, options);
   }
 
   removeEventListener<K extends 'ended'>(
@@ -262,7 +262,7 @@ export class MultiOscillator implements OscillatorNode {
     listener: (
       this: OscillatorNode,
       ev: AudioScheduledSourceNodeEventMap[K],
-    ) => any,
+    ) => void,
     options?: boolean | EventListenerOptions | undefined,
   ): void;
   removeEventListener(
@@ -271,15 +271,11 @@ export class MultiOscillator implements OscillatorNode {
     options?: boolean | EventListenerOptions | undefined,
   ): void;
   removeEventListener(
-    type: unknown,
-    listener: unknown,
-    options?: unknown,
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | EventListenerOptions | undefined,
   ): void {
-    this.voices[0].removeEventListener(
-      type as any,
-      listener as any,
-      options as any,
-    );
+    this.voices[0].removeEventListener(type, listener, options);
   }
 
   /**
@@ -317,15 +313,18 @@ export class MultiOscillator implements OscillatorNode {
   ): AudioNode;
   connect(destinationParam: AudioParam, output?: number | undefined): void;
   connect(
-    destinationNode: unknown,
-    output?: unknown,
-    input?: unknown,
+    destinationNode: AudioNode | AudioParam,
+    output?: number | undefined,
+    input?: number | undefined,
   ): void | AudioNode {
-    return this._gain.connect(
-      destinationNode as any,
-      output as any,
-      input as any,
-    );
+    if (input === undefined) {
+      const connectNodeOrParam = this._gain.connect as (
+        destination: AudioNode | AudioParam,
+        output?: number,
+      ) => void | AudioNode;
+      return connectNodeOrParam.call(this._gain, destinationNode, output);
+    }
+    return this._gain.connect(destinationNode as AudioNode, output, input);
   }
 
   disconnect(): void;
@@ -336,18 +335,26 @@ export class MultiOscillator implements OscillatorNode {
   disconnect(destinationParam: AudioParam): void;
   disconnect(destinationParam: AudioParam, output: number): void;
   disconnect(
-    destinationNode?: unknown,
-    output?: unknown,
-    input?: unknown,
+    destinationNode?: number | AudioNode | AudioParam,
+    output?: number,
+    input?: number,
   ): void {
+    const disconnectNodeOrParam = this._gain.disconnect as (
+      destination: AudioNode | AudioParam,
+      output?: number,
+    ) => void;
     if (destinationNode === undefined) {
       this._gain.disconnect();
+    } else if (typeof destinationNode === 'number') {
+      this._gain.disconnect(destinationNode);
+    } else if (input === undefined) {
+      disconnectNodeOrParam.call(this._gain, destinationNode, output);
     } else {
-      this._gain.disconnect(
-        destinationNode as any,
-        output as any,
-        input as any,
-      );
+      if (output === undefined) {
+        this._gain.disconnect(destinationNode as AudioNode);
+      } else {
+        this._gain.disconnect(destinationNode as AudioNode, output, input);
+      }
     }
   }
 
@@ -381,7 +388,10 @@ export class MultiOscillator implements OscillatorNode {
     destination: AudioNode | AudioParam,
   ) {
     try {
-      source.disconnect(destination as any);
+      const disconnectNodeOrParam = source.disconnect as (
+        destination: AudioNode | AudioParam,
+      ) => void;
+      disconnectNodeOrParam.call(source, destination);
     } catch (error) {
       if (!(error instanceof Error)) {
         throw error;
