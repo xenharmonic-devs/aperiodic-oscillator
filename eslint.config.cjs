@@ -10,8 +10,5 @@ module.exports = [
         project: './tsconfig.eslint.json',
       },
     },
-    rules: {
-      '@typescript-eslint/no-explicit-any': 0,
-    },
   },
 ];
