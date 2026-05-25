@@ -205,6 +205,12 @@ export class MultiOscillator implements OscillatorNode {
     return this.voices[0].onended;
   }
 
+  set onended(
+    newValue: ((this: AudioScheduledSourceNode, ev: Event) => unknown) | null,
+  ) {
+    this.voices[0].onended = newValue;
+  }
+
   get channelCount() {
     return this.voices[0].channelCount;
   }

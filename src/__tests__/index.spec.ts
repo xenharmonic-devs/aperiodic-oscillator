@@ -156,6 +156,13 @@ describe('MultiOscillator lifecycle', () => {
       oscillator.stop();
     }).not.toThrow();
   });
+
+  it('Can set the onended property', () => {
+    const oscillator = new MultiOscillator(context, {frequency: 440});
+    expect(() => {
+      oscillator.onended = vi.fn();
+    }).not.toThrow();
+  });
 });
 
 describe('Unison Oscillator', () => {
@@ -218,5 +225,12 @@ describe('Aperiodic Oscillator', () => {
 
     const oscillator = new AperiodicOscillator(context, {aperiodicWave});
     expect(oscillator.voices).toHaveLength(7);
+  });
+
+  it('Can set the onended property', () => {
+    const oscillator = new UnisonOscillator(context);
+    expect(() => {
+      oscillator.onended = vi.fn();
+    }).not.toThrow();
   });
 });
